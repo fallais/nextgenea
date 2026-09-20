@@ -1,12 +1,13 @@
 import type { DateFormat } from './dates'
 import type { SheetName } from './pdf/tile'
-import type { DirectionSetting, TitleAlign, TypeScale, VerticalFrom } from './tree/layout'
+import type { DirectionSetting, NameSize, TitleAlign, VerticalFrom } from './tree/layout'
 
 export interface PosterConfig {
   rootId: string | null
   generations: number
   direction: DirectionSetting
-  typeScale: TypeScale
+  /** Name size in mm; the card size follows from it. */
+  nameSize: NameSize
   themeId: string
   /** Poster title. Empty follows the root person's name. */
   title: string

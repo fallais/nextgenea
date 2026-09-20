@@ -20,7 +20,7 @@ const INITIAL_CONFIG: PosterConfig = {
   rootId: null,
   generations: 5,
   direction: 'up',
-  typeScale: 'compact',
+  nameSize: 3.1,
   themeId: DEFAULT_THEME_ID,
   title: '',
   titleAlign: 'left',
@@ -98,7 +98,7 @@ export default function Home() {
       ancestry,
       theme,
       direction: config.direction,
-      typeScale: config.typeScale,
+      nameSize: config.nameSize,
       showEmpty: config.showEmpty,
       showPlaces: config.showPlaces,
       showMarriages: config.showMarriages,
@@ -215,6 +215,7 @@ export default function Home() {
         root={root}
         ancestry={ancestry}
         direction={poster?.direction ?? null}
+        card={poster?.card ?? null}
         oversize={poster?.oversize ?? false}
         reachable={reachable}
         page={poster?.page ?? null}

@@ -6,12 +6,13 @@ import type { SheetName, TilePlan } from '@/lib/pdf/tile'
 import { THEMES } from '@/lib/themes'
 import { MAX_GENERATIONS, MIN_GENERATIONS } from '@/lib/tree/ancestry'
 import type { Ancestry } from '@/lib/tree/ancestry'
-import type {
-  DirectionSetting,
-  TitleAlign,
-  TreeDirection,
-  TypeScale,
-  VerticalFrom,
+import {
+  MAX_NAME_SIZE,
+  MIN_NAME_SIZE,
+  type DirectionSetting,
+  type TitleAlign,
+  type TreeDirection,
+  type VerticalFrom,
 } from '@/lib/tree/layout'
 import type { Genealogy, Person } from '@/lib/gedcom/types'
 import type { PosterConfig } from '@/lib/config'
@@ -28,6 +29,7 @@ interface ControlPanelProps {
   oversize: boolean
   reachable: number
   page: PageBox | null
+  card: { w: number; h: number } | null
   tilePlan: TilePlan | null
   exporting: 'pdf' | 'svg' | 'tiles' | null
   exportError: string | null
@@ -44,6 +46,7 @@ export function ControlPanel({
   root,
   ancestry,
   direction,
+  card,
   oversize,
   reachable,
   page,
@@ -178,17 +181,27 @@ export function ControlPanel({
           />
         </Field>
 
-        <Field label="Type size">
-          <Segmented
-            value={config.typeScale}
-            onChange={(value) => onChange({ typeScale: value as TypeScale })}
-            options={[
-              { value: 'compact', label: 'Compact' },
-              { value: 'standard', label: 'Standard' },
-              { value: 'generous', label: 'Generous' },
-            ]}
-          />
+        <Field
+          label="Size"
+          hint={card ? `cards ${Math.round(card.w)} × ${Math.round(card.h)} mm` : undefined}
+        >
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={MIN_NAME_SIZE}
+              max={MAX_NAME_SIZE}
+              step={0.1}
+              value={config.nameSize}
+              onChange={(event) => onChange({ nameSize: Number(event.target.value) })}
+              aria-label="Type size"
+              className="min-w-0 flex-1"
+            />
+            <span className="w-14 shrink-0 text-right text-xs tabular-nums text-[var(--ui-muted)]">
+              {config.nameSize.toFixed(1)} mm
+            </span>
+          </div>
         </Field>
+
       </Panel>
 
       <Panel className="space-y-4">

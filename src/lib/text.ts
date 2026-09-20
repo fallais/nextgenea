@@ -96,8 +96,10 @@ export function firstGivenName(given: string): string {
 /**
  * Places shorten by dropping the outer administrative levels — "Rouen,
  * Seine-Maritime, France" becomes "Rouen, Seine-Maritime" then "Rouen".
- * Unlike a surname a place may finally be clipped, since it is context rather
- * than identity.
+ *
+ * If even the locality will not fit, the place is dropped entirely rather than
+ * cut mid-word: "Berwick-upon-Twe…" is neither useful nor good-looking, and a
+ * poster is not the place to read a truncated toponym.
  */
 export function shortenPlace(place: string, maxWidth: number, style: TextStyle): string {
   if (!place) return ''
@@ -106,5 +108,5 @@ export function shortenPlace(place: string, maxWidth: number, style: TextStyle):
     const candidate = parts.slice(0, keep).join(', ')
     if (measureText(candidate, style) <= maxWidth) return candidate
   }
-  return fitText(parts[0] ?? place, maxWidth, style)
+  return ''
 }

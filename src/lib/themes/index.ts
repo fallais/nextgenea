@@ -8,9 +8,10 @@ import { archival } from './archival'
 import { blueprint } from './blueprint'
 import { botanical } from './botanical'
 import { heraldic } from './heraldic'
+import { plain } from './plain'
 import type { Theme } from './types'
 
-export const THEMES: Theme[] = [archival, heraldic, blueprint, botanical]
+export const THEMES: Theme[] = [plain, archival, heraldic, blueprint, botanical]
 
 export const DEFAULT_THEME_ID = archival.id
 

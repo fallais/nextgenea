@@ -26,27 +26,35 @@ import type { Ancestry, AncestorSlot } from './ancestry'
 /** `up` puts the root at the bottom; `right` puts it at the left edge. */
 export type TreeDirection = 'up' | 'right'
 export type DirectionSetting = TreeDirection | 'auto'
-export type TypeScale = 'compact' | 'standard' | 'generous'
+/** Name size in millimetres. Everything else on the card derives from it. */
+export type NameSize = number
+
+/** Below this, print stops being readable at arm's length. */
+export const MIN_NAME_SIZE = 1.6
+export const MAX_NAME_SIZE = 6
 export type TitleAlign = 'left' | 'right'
 /** Generation from which card text is set on its side, or 'off'. */
 export type VerticalFrom = number | 'off'
 
-/** Name size in mm for each setting. Everything else is derived from it. */
-const NAME_SIZE: Record<TypeScale, number> = {
-  compact: 3.1,
-  standard: 3.9,
-  generous: 4.9,
-}
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
 /**
- * How tightly each setting packs. Compact is not merely smaller type — it also
- * pulls the padding, margins and gaps in, which is the difference between a
- * dense chart and a small one floating in white space.
+ * How tightly the chart packs, as a function of type size.
+ *
+ * Small type is not merely smaller — it also pulls padding, margins and gaps
+ * in, which is the difference between a dense chart and a small one adrift in
+ * white space. Interpolated rather than keyed off presets so the size control
+ * can be continuous: the card size is the thing being aimed at, and it needs
+ * to be reachable, not approximated by three steps.
  */
-const DENSITY: Record<TypeScale, { pad: number; margin: number; gap: number; run: number }> = {
-  compact: { pad: 0.5, margin: 0.56, gap: 0.18, run: 0.4 },
-  standard: { pad: 1, margin: 1, gap: 0.32, run: 0.55 },
-  generous: { pad: 1.15, margin: 1.15, gap: 0.38, run: 0.62 },
+function densityFor(nameSize: NameSize) {
+  const t = clamp((nameSize - 3.1) / (4.9 - 3.1), 0, 1)
+  return {
+    pad: lerp(0.5, 1.15, t),
+    margin: lerp(0.56, 1.15, t),
+    gap: lerp(0.18, 0.38, t),
+    run: lerp(0.4, 0.62, t),
+  }
 }
 
 export interface TextLine {
@@ -107,6 +115,8 @@ export interface MarriagePlaque {
 
 export interface PosterLayout {
   page: PageBox
+  /** Card size in mm, reported so the size control can be aimed at it. */
+  card: { w: number; h: number }
   /** The drawing ran past even the sanity ceiling; something is wrong upstream. */
   oversize: boolean
   direction: TreeDirection
@@ -136,9 +146,9 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 const BORN = '*'
 const DIED = '†'
 
-export function posterMargin(theme: Theme, typeScale: TypeScale): number {
-  const { margin } = DENSITY[typeScale]
-  return round(clamp(NAME_SIZE[typeScale] * theme.page.marginScale * margin, 8, 42))
+export function posterMargin(theme: Theme, nameSize: NameSize): number {
+  const { margin } = densityFor(nameSize)
+  return round(clamp(nameSize * theme.page.marginScale * margin, 8, 42))
 }
 
 interface Sizing {
@@ -172,7 +182,7 @@ export interface LayoutInput {
   ancestry: Ancestry
   theme: Theme
   direction: DirectionSetting
-  typeScale: TypeScale
+  nameSize: NameSize
   showEmpty: boolean
   showPlaces: boolean
   showMarriages: boolean
@@ -187,8 +197,7 @@ export interface LayoutInput {
  * surname drives the width: it is never shortened, so the card grows instead.
  */
 function measureCards(input: LayoutInput): Sizing {
-  const { ancestry, theme, typeScale, showPlaces, showMarriages, dateFormat } = input
-  const nameSize = NAME_SIZE[typeScale]
+  const { ancestry, theme, nameSize, showPlaces, showMarriages, dateFormat } = input
   const dateSize = round(nameSize * 0.72)
   const plaqueSize = round(nameSize * 0.62)
 
@@ -246,8 +255,8 @@ function measureCards(input: LayoutInput): Sizing {
   }
 
   // Places influence the width but must not be allowed to dominate it.
-  const contentW = Math.max(nameWidth, metaWidth, Math.min(placeWidth, nameWidth * 1.5), 18)
-  const density = DENSITY[typeScale]
+  const contentW = Math.max(nameWidth, metaWidth, Math.min(placeWidth, nameWidth * 1.8), 18)
+  const density = densityFor(nameSize)
   const padX = round(nameSize * 0.85 * density.pad)
   const padY = round(nameSize * 0.5 * density.pad)
   const cardW = round(contentW + padX * 2)
@@ -498,11 +507,11 @@ function makeGrid(
   sizing: Sizing,
   direction: TreeDirection,
   showMarriages: boolean,
-  typeScale: TypeScale,
+  nameSize: NameSize,
   isVertical: (generation: number) => boolean,
   depth: number,
 ): Grid {
-  const density = DENSITY[typeScale]
+  const density = densityFor(nameSize)
   const boxW = (g: number) => (isVertical(g) ? sizing.cardH : sizing.cardW)
   const boxH = (g: number) => (isVertical(g) ? sizing.cardW : sizing.cardH)
 
@@ -523,12 +532,12 @@ function makeGrid(
 
 export function layoutPoster(input: LayoutInput): PosterLayout {
   const {
-    ancestry, theme, typeScale, showEmpty, showPlaces, showMarriages,
+    ancestry, theme, nameSize, showEmpty, showPlaces, showMarriages,
     title, titleAlign, verticalFrom, dateFormat,
   } = input
 
   const sizing = measureCards(input)
-  const margin = posterMargin(theme, typeScale)
+  const margin = posterMargin(theme, nameSize)
 
   const slotByNumber = new Map(ancestry.slots.map((slot) => [slot.ahnentafel, slot]))
   /** A slot is drawn if it holds someone, or if placeholders are switched on. */
@@ -559,7 +568,7 @@ export function layoutPoster(input: LayoutInput): PosterLayout {
   const depth = maxGeneration + 1
 
   const shapeFor = (candidate: TreeDirection) => {
-    const g = makeGrid(sizing, candidate, showMarriages, typeScale, isVertical, depth)
+    const g = makeGrid(sizing, candidate, showMarriages, nameSize, isVertical, depth)
     const sibling = leafCount * (g.siblingExtent(maxGeneration) + g.gap(maxGeneration))
     let span = -g.run
     for (let gen = 0; gen < depth; gen++) span += g.genExtent(gen) + g.run
@@ -573,7 +582,7 @@ export function layoutPoster(input: LayoutInput): PosterLayout {
           return ratio(shapeFor('right')) <= ratio(shapeFor('up')) ? 'right' : 'up'
         })()
 
-  const grid = makeGrid(sizing, direction, showMarriages, typeScale, isVertical, depth)
+  const grid = makeGrid(sizing, direction, showMarriages, nameSize, isVertical, depth)
 
   // Where each generation sits along its axis; extents can differ per row now.
   const genCentre: number[] = []
@@ -794,6 +803,7 @@ export function layoutPoster(input: LayoutInput): PosterLayout {
 
   return {
     page: { w: pageW, h: pageH },
+    card: { w: sizing.cardW, h: sizing.cardH },
     oversize,
     direction,
     margin,
