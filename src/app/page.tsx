@@ -9,7 +9,8 @@ import type { PosterConfig } from '@/lib/config'
 import { parseGedcomFile } from '@/lib/gedcom/parse'
 import type { Genealogy } from '@/lib/gedcom/types'
 import { posterFileName } from '@/lib/fonts'
-import { exportPosterPdf } from '@/lib/pdf/export'
+import { exportPosterPdf, exportPosterTiledPdf } from '@/lib/pdf/export'
+import { planTiles } from '@/lib/pdf/tile'
 import { buildPosterSvg, exportPosterSvg } from '@/lib/svg/export'
 import { DEFAULT_THEME_ID, getTheme } from '@/lib/themes'
 import { buildAncestry, deepestRoot, reachableDepth } from '@/lib/tree/ancestry'
@@ -25,6 +26,7 @@ const INITIAL_CONFIG: PosterConfig = {
   titleAlign: 'left',
   verticalFrom: 9,
   dateFormat: 'french',
+  tileSheet: 'off',
   showEmpty: false,
   showPlaces: true,
   showMarriages: true,
@@ -35,7 +37,7 @@ export default function Home() {
   const [config, setConfig] = useState<PosterConfig>(INITIAL_CONFIG)
   const [parsing, setParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
-  const [exporting, setExporting] = useState<'pdf' | 'svg' | null>(null)
+  const [exporting, setExporting] = useState<'pdf' | 'svg' | 'tiles' | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [zoomed, setZoomed] = useState(false)
 
@@ -109,15 +111,36 @@ export default function Home() {
 
   const poster = layout
 
+  /** The grid the poster would be split across, once a sheet is chosen. */
+  const tilePlan = useMemo(
+    () =>
+      poster && config.tileSheet !== 'off'
+        ? planTiles(poster.page, { sheet: config.tileSheet, orientation: 'auto' })
+        : null,
+    [poster, config.tileSheet],
+  )
+
   const runExport = useCallback(
-    async (kind: 'pdf' | 'svg') => {
+    async (kind: 'pdf' | 'svg' | 'tiles') => {
       if (!svgRef.current || !root || !poster) return
       setExporting(kind)
       setExportError(null)
       try {
-        const fileName = posterFileName(root.fullName, config.generations, kind)
+        const fileName = posterFileName(
+          root.fullName,
+          config.generations,
+          kind === 'svg' ? 'svg' : 'pdf',
+        )
         if (kind === 'svg') {
           await exportPosterSvg({ svg: svgRef.current, theme, fileName })
+        } else if (kind === 'tiles' && tilePlan) {
+          await exportPosterTiledPdf({
+            svg: svgRef.current,
+            page: poster.page,
+            theme,
+            fileName,
+            plan: tilePlan,
+          })
         } else {
           await exportPosterPdf({ svg: svgRef.current, page: poster.page, theme, fileName })
         }
@@ -129,7 +152,7 @@ export default function Home() {
         setExporting(null)
       }
     },
-    [root, poster, theme, config.generations],
+    [root, poster, theme, config.generations, tilePlan],
   )
 
   /**
@@ -197,8 +220,10 @@ export default function Home() {
         page={poster?.page ?? null}
         exporting={exporting}
         exportError={exportError}
+        tilePlan={tilePlan}
         onExportPdf={() => runExport('pdf')}
         onExportSvg={() => runExport('svg')}
+        onExportTiles={() => runExport('tiles')}
         onReset={handleReset}
       />
 

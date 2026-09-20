@@ -14,6 +14,7 @@ import { facesFor, toBase64, waitForFonts } from '@/lib/fonts'
 import type { PageBox } from '@/lib/paper'
 import { userUnitFor } from '@/lib/paper'
 import type { Theme } from '@/lib/themes/types'
+import type { Tile, TilePlan } from './tile'
 
 export { posterFileName } from '@/lib/fonts'
 
@@ -92,6 +93,106 @@ export async function exportPosterPdf({
 
   try {
     await svg2pdf(clone, pdf, { x: 0, y: 0, width: boxW, height: boxH })
+    pdf.save(fileName)
+  } finally {
+    stage.remove()
+  }
+}
+
+/** Guides drawn on each tile: where to cut, and which sheet this is. */
+function drawTileFurniture(pdf: jsPDF, plan: TilePlan, tile: Tile): void {
+  const { margin, overlap, usable, sheet } = plan
+
+  pdf.saveGraphicsState()
+  pdf.setLineWidth(0.1)
+  pdf.setDrawColor(160)
+
+  // Where this tile's own area ends and its neighbour's copy begins: cut here,
+  // then lay the next sheet's overlap on top.
+  const trimX = margin + usable.w - overlap
+  const trimY = margin + usable.h - overlap
+  if (tile.col < plan.cols - 1) pdf.line(trimX, margin, trimX, margin + usable.h)
+  if (tile.row < plan.rows - 1) pdf.line(margin, trimY, margin + usable.w, trimY)
+
+  // Corner ticks on the printable box, so the sheets can be squared up.
+  const tick = 4
+  pdf.setDrawColor(110)
+  const corners: [number, number, number, number][] = [
+    [margin, margin, 1, 1],
+    [margin + usable.w, margin, -1, 1],
+    [margin, margin + usable.h, 1, -1],
+    [margin + usable.w, margin + usable.h, -1, -1],
+  ]
+  for (const [x, y, sx, sy] of corners) {
+    pdf.line(x, y, x + sx * tick, y)
+    pdf.line(x, y, x, y + sy * tick)
+  }
+
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(7)
+  pdf.setTextColor(120)
+  pdf.text(
+    `${tile.label}  ·  col ${tile.col + 1}/${plan.cols}  ·  row ${tile.row + 1}/${plan.rows}` +
+      `  ·  overlap ${overlap}mm`,
+    margin,
+    sheet.h - margin / 2,
+  )
+  pdf.restoreGraphicsState()
+}
+
+export interface TiledExportOptions extends ExportOptions {
+  plan: TilePlan
+}
+
+/**
+ * Write the poster across ordinary sheets.
+ *
+ * Each page carries the whole drawing behind a viewBox window; the PDF page
+ * box clips it, so a tile shows only its own slice. Every page is a normal
+ * sheet, which also sidesteps the /UserUnit ceiling a single-page export hits.
+ */
+export async function exportPosterTiledPdf({
+  svg,
+  theme,
+  fileName,
+  plan,
+}: TiledExportOptions): Promise<void> {
+  const [{ jsPDF: JsPDF }, { svg2pdf }] = await Promise.all([
+    import('jspdf'),
+    import('svg2pdf.js'),
+  ])
+
+  await waitForFonts(theme)
+
+  const format: [number, number] = [plan.sheet.w, plan.sheet.h]
+  const pdf = new JsPDF({ unit: 'mm', format, orientation: plan.orientation, compress: true })
+  await embedFonts(pdf, theme)
+
+  const stage = document.createElement('div')
+  stage.setAttribute(
+    'style',
+    'position:absolute;left:-10000px;top:0;width:0;height:0;overflow:hidden',
+  )
+  document.body.appendChild(stage)
+
+  try {
+    for (const [index, tile] of plan.tiles.entries()) {
+      if (index > 0) pdf.addPage(format, plan.orientation)
+
+      const clone = svg.cloneNode(true) as SVGSVGElement
+      clone.setAttribute('viewBox', `${tile.x} ${tile.y} ${plan.usable.w} ${plan.usable.h}`)
+      clone.setAttribute('width', String(plan.usable.w))
+      clone.setAttribute('height', String(plan.usable.h))
+      stage.replaceChildren(clone)
+
+      await svg2pdf(clone, pdf, {
+        x: plan.margin,
+        y: plan.margin,
+        width: plan.usable.w,
+        height: plan.usable.h,
+      })
+      drawTileFurniture(pdf, plan, tile)
+    }
     pdf.save(fileName)
   } finally {
     stage.remove()

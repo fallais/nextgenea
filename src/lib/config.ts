@@ -1,4 +1,5 @@
 import type { DateFormat } from './dates'
+import type { SheetName } from './pdf/tile'
 import type { DirectionSetting, TitleAlign, TypeScale, VerticalFrom } from './tree/layout'
 
 export interface PosterConfig {
@@ -13,6 +14,8 @@ export interface PosterConfig {
   /** Generation from which card text is set on its side. */
   verticalFrom: VerticalFrom
   dateFormat: DateFormat
+  /** Sheet to tile the poster onto, or 'off' for a single page. */
+  tileSheet: SheetName | 'off'
   /** Draw a placeholder where an ancestor is unknown. */
   showEmpty: boolean
   /** Include birth and death places on each card. */

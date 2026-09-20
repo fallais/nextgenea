@@ -143,7 +143,7 @@ const dateLine = (year) => {
 }
 
 lines.push(
-  '0 HEAD', '1 SOUR GENEANEXT-SAMPLE', '1 GEDC', '2 VERS 5.5.1',
+  '0 HEAD', '1 SOUR NEXTGENEA-SAMPLE', '1 GEDC', '2 VERS 5.5.1',
   '2 FORM LINEAGE-LINKED', '1 CHAR UTF-8',
 )
 

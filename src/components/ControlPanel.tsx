@@ -2,6 +2,7 @@
 
 import { DATE_FORMAT_LABELS, type DateFormat } from '@/lib/dates'
 import { fitsInPdf, userUnitFor, type PageBox } from '@/lib/paper'
+import type { SheetName, TilePlan } from '@/lib/pdf/tile'
 import { THEMES } from '@/lib/themes'
 import { MAX_GENERATIONS, MIN_GENERATIONS } from '@/lib/tree/ancestry'
 import type { Ancestry } from '@/lib/tree/ancestry'
@@ -27,10 +28,12 @@ interface ControlPanelProps {
   oversize: boolean
   reachable: number
   page: PageBox | null
-  exporting: 'pdf' | 'svg' | null
+  tilePlan: TilePlan | null
+  exporting: 'pdf' | 'svg' | 'tiles' | null
   exportError: string | null
   onExportPdf: () => void
   onExportSvg: () => void
+  onExportTiles: () => void
   onReset: () => void
 }
 
@@ -44,10 +47,12 @@ export function ControlPanel({
   oversize,
   reachable,
   page,
+  tilePlan,
   exporting,
   exportError,
   onExportPdf,
   onExportSvg,
+  onExportTiles,
   onReset,
 }: ControlPanelProps) {
   const generations = Array.from(
@@ -214,6 +219,28 @@ export function ControlPanel({
           </select>
         </Field>
 
+        <Field
+          label="Tile onto sheets"
+          hint={
+            tilePlan
+              ? `${tilePlan.cols}×${tilePlan.rows} ${tilePlan.orientation}`
+              : undefined
+          }
+        >
+          <select
+            value={config.tileSheet}
+            onChange={(event) =>
+              onChange({ tileSheet: event.target.value as SheetName | 'off' })
+            }
+            aria-label="Tile onto sheets"
+            className="w-full rounded-lg border border-[var(--ui-border)] bg-[var(--ui-shell)] px-3 py-2 text-sm text-[var(--ui-text)] focus:border-[var(--ui-accent)] focus:outline-none"
+          >
+            <option value="off">Off — single sheet</option>
+            <option value="A4">A4</option>
+            <option value="A3">A3</option>
+          </select>
+        </Field>
+
         <Field label="Date format">
           <select
             value={config.dateFormat}
@@ -272,6 +299,19 @@ export function ControlPanel({
         >
           {exporting === 'svg' ? 'Building SVG…' : 'Download SVG'}
         </button>
+
+        {tilePlan && (
+          <button
+            type="button"
+            onClick={onExportTiles}
+            disabled={exporting !== null || !root}
+            className="w-full rounded-lg border border-[var(--ui-border)] px-4 py-2.5 text-sm font-medium text-[var(--ui-text)] transition-colors hover:border-[var(--ui-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {exporting === 'tiles'
+              ? 'Building tiles…'
+              : `Download ${tilePlan.count} × ${tilePlan.sheetName} tiles`}
+          </button>
+        )}
 
         <button
           type="button"
