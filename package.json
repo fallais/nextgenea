@@ -6,12 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "sample": "node scripts/make-sample-gedcom.mjs > sample.ged"
   },
   "dependencies": {
+    "jspdf": "^4.2.1",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "read-gedcom": "^0.3.2",
+    "svg2pdf.js": "^2.8.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -20,6 +25,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "subset-font": "^2.7.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
